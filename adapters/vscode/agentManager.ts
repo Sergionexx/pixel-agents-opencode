@@ -13,9 +13,17 @@ import {
   startFileWatching,
 } from '../../server/src/fileWatcher.js';
 import { loadLayout } from '../../server/src/layoutPersistence.js';
-import { CLAUDE_TERMINAL_NAME_PREFIX } from '../../server/src/providers/hook/claude/constants.js';
+import {
+  CLAUDE_TERMINAL_NAME_PREFIX,
+} from '../../server/src/providers/hook/claude/constants.js';
+import {
+  OPCODE_TERMINAL_NAME_PREFIX,
+} from '../../server/src/providers/hook/opencode/constants.js';
 import { claudeProvider } from '../../server/src/providers/index.js';
-import { cancelPermissionTimer, cancelWaitingTimer } from '../../server/src/timerManager.js';
+import {
+  cancelPermissionTimer,
+  cancelWaitingTimer,
+} from '../../server/src/timerManager.js';
 import type { AgentState, PersistedAgent } from '../../server/src/types.js';
 
 export function getProjectDirPath(cwd?: string): string {
@@ -30,6 +38,69 @@ export function getProjectDirPath(cwd?: string): string {
   const projectDir = dirs[0];
   console.log(`[Pixel Agents] Terminal: Project dir: ${workspacePath} → ${projectDir}`);
   return projectDir;
+}
+
+/**
+ * Launch a new opencode terminal and create the agent immediately.
+ * Uses --session to assign a known session ID so the DB poller won't duplicate it.
+ */
+export function launchOpenCodeTerminal(
+  nextAgentIdRef: { current: number },
+  nextTerminalIndexRef: { current: number },
+  agents: AgentStateStore,
+  folderPath?: string,
+  suppressShow?: boolean,
+): void {
+  const folders = vscode.workspace.workspaceFolders;
+  const cwd = folderPath || folders?.[0]?.uri.fsPath || os.homedir();
+  const idx = nextTerminalIndexRef.current++;
+  const terminal = vscode.window.createTerminal({
+    name: `${OPCODE_TERMINAL_NAME_PREFIX} #${idx}`,
+    cwd,
+  });
+  if (!suppressShow) {
+    terminal.show();
+  }
+
+  terminal.sendText('opencode');
+
+  // Create the agent immediately so a character appears right away, even
+  // before the DB poller discovers the session. sessionId is empty for now;
+  // the poller's registerExternalHooksOnlyAgent will update it when found.
+  const id = nextAgentIdRef.current++;
+  const agent: AgentState = {
+    id,
+    sessionId: '',
+    terminalRef: terminal,
+    isExternal: false,
+    projectDir: cwd,
+    jsonlFile: '',
+    fileOffset: 0,
+    lineBuffer: '',
+    activeToolIds: new Set(),
+    activeToolStatuses: new Map(),
+    activeToolNames: new Map(),
+    activeSubagentToolIds: new Map(),
+    activeSubagentToolNames: new Map(),
+    backgroundAgentToolIds: new Set(),
+    isWaiting: true,
+    permissionSent: false,
+    hadToolsInTurn: false,
+    hookDelivered: true,
+    hooksOnly: true,
+    lastDataAt: Date.now(),
+    linesProcessed: 0,
+    seenUnknownRecordTypes: new Set(),
+    folderName:
+      folders && folders.length > 1 && cwd
+        ? path.basename(cwd)
+        : undefined,
+    inputTokens: 0,
+    outputTokens: 0,
+  };
+  agents.set(id, agent);
+  agents.persist();
+  console.log(`[Pixel Agents] OpenCode: Agent ${id} - created for terminal ${terminal.name}`);
 }
 
 export async function launchNewTerminal(
@@ -430,7 +501,7 @@ export function restoreAgents(
     setTimeout(() => {
       for (const id of restoredTerminalIds) {
         const agent = store.get(id);
-        if (agent && !agent.isExternal && agent.linesProcessed === 0) {
+        if (agent && !agent.isExternal && !agent.hooksOnly && agent.linesProcessed === 0) {
           console.log(
             `[Pixel Agents] Terminal: Agent ${id} - removing restored agent, no data received`,
           );

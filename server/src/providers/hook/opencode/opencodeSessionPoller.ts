@@ -5,7 +5,6 @@ import * as path from 'path';
 import {
   OPCODE_DB_POLL_INTERVAL_MS,
   OPCODE_HOOK_EVENT_PREFIX,
-  OPCODE_INITIAL_SCAN_WINDOW_MS,
 } from './constants.js';
 import { getOpenCodeDbPath } from './opencode.js';
 
@@ -57,6 +56,11 @@ export interface OpenCodeEventCallback {
   (providerId: string, event: Record<string, unknown>): void;
 }
 
+/** Callback invoked when a new session is discovered — should register the agent. */
+export interface OpenCodeNewSessionCallback {
+  (sessionId: string, directory: string): number | undefined;
+}
+
 // ── Poller ──
 
 export class OpenCodeSessionPoller {
@@ -64,12 +68,18 @@ export class OpenCodeSessionPoller {
   private sessions = new Map<string, SessionState>();
   private knownSessionIds = new Set<string>();
   private workspaceDir: string;
-  private callback: OpenCodeEventCallback;
+  private eventCallback: OpenCodeEventCallback;
+  private onNewSession: OpenCodeNewSessionCallback | null;
   private dbPath: string;
 
-  constructor(workspaceDir: string, callback: OpenCodeEventCallback) {
+  constructor(
+    workspaceDir: string,
+    eventCallback: OpenCodeEventCallback,
+    onNewSession?: OpenCodeNewSessionCallback | null,
+  ) {
     this.workspaceDir = workspaceDir;
-    this.callback = callback;
+    this.eventCallback = eventCallback;
+    this.onNewSession = onNewSession ?? null;
     this.dbPath = getOpenCodeDbPath();
   }
 
@@ -197,29 +207,66 @@ export class OpenCodeSessionPoller {
   private handleNewSession(sess: OpenCodeSession): void {
     this.knownSessionIds.add(sess.id);
 
-    // Emit sessionStart
-    this.callback('opencode', {
-      hook_event_name: `${OPCODE_HOOK_EVENT_PREFIX}sessionStart`,
-      session_id: sess.id,
-      cwd: sess.directory,
-      source: 'new',
-    });
+    // Register the agent directly (no pending flow — DB sessions are real)
+    if (this.onNewSession) {
+      this.onNewSession(sess.id, sess.directory);
+    }
 
     // Initialize tracking state
     const latestParts = this.queryLatestParts(sess.id, 0);
     let latestPartTime = sess.time_updated;
     let latestToolPartTime = 0;
+    let activeToolId: string | null = null;
+    let activeToolName: string | null = null;
+    let activeToolInput: Record<string, unknown> | null = null;
+    let activeToolStartTime = 0;
+    let hasUnfinishedTurn = false;
 
     for (const part of latestParts) {
-      if (part.time_created > latestPartTime) latestPartTime = part.time_created;
+      const t = part.time_created;
+      if (t > latestPartTime) latestPartTime = t;
       try {
         const parsed = JSON.parse(part.data) as ParsedPart;
-        if (parsed.type === 'tool') {
-          latestToolPartTime = Math.max(latestToolPartTime, part.time_created);
+        if (parsed.type === 'tool' && parsed.tool) {
+          latestToolPartTime = Math.max(latestToolPartTime, t);
+          const toolName = parsed.tool;
+          const callID = parsed.callID ?? '';
+          const status = parsed.state?.status ?? 'completed';
+          const input = parsed.state?.input ?? {};
+
+          if (status === 'running' && callID) {
+            // Track the latest running tool
+            if (!activeToolId || t > activeToolStartTime) {
+              if (activeToolId) {
+                this.emitToolEnd(sess.id, activeToolId);
+              }
+              activeToolId = callID;
+              activeToolName = toolName;
+              activeToolInput = input;
+              activeToolStartTime = t;
+              hasUnfinishedTurn = true;
+            }
+          } else if (status === 'completed' && callID) {
+            // Already completed — emit toolEnd for cleanup
+            this.emitToolEnd(sess.id, callID);
+          }
+        } else if (parsed.type === 'step-finish') {
+          hasUnfinishedTurn = false;
+          if (activeToolId) {
+            this.emitToolEnd(sess.id, activeToolId);
+            activeToolId = null;
+            activeToolName = null;
+            activeToolInput = null;
+          }
         }
       } catch {
         /* skip unparseable */
       }
+    }
+
+    // Emit toolStart for the currently running tool (if any)
+    if (activeToolId) {
+      this.emitToolStart(sess.id, activeToolName!, activeToolInput!);
     }
 
     this.sessions.set(sess.id, {
@@ -228,11 +275,11 @@ export class OpenCodeSessionPoller {
       agentType: sess.agent,
       latestPartTime,
       latestToolPartTime,
-      activeToolId: null,
-      activeToolName: null,
-      activeToolInput: null,
-      activeToolStartTime: 0,
-      hasUnfinishedTurn: false,
+      activeToolId,
+      activeToolName,
+      activeToolInput,
+      activeToolStartTime,
+      hasUnfinishedTurn,
     });
   }
 
@@ -252,7 +299,7 @@ export class OpenCodeSessionPoller {
   // ── Event Emitters ──
 
   private emitToolStart(sessionId: string, toolName: string, input: Record<string, unknown>): void {
-    this.callback('opencode', {
+    this.eventCallback('opencode', {
       hook_event_name: `${OPCODE_HOOK_EVENT_PREFIX}toolStart`,
       session_id: sessionId,
       tool_name: toolName,
@@ -261,7 +308,7 @@ export class OpenCodeSessionPoller {
   }
 
   private emitToolEnd(sessionId: string, toolId: string): void {
-    this.callback('opencode', {
+    this.eventCallback('opencode', {
       hook_event_name: `${OPCODE_HOOK_EVENT_PREFIX}toolEnd`,
       session_id: sessionId,
       tool_id: toolId,
@@ -269,14 +316,14 @@ export class OpenCodeSessionPoller {
   }
 
   private emitTurnEnd(sessionId: string): void {
-    this.callback('opencode', {
+    this.eventCallback('opencode', {
       hook_event_name: `${OPCODE_HOOK_EVENT_PREFIX}turnEnd`,
       session_id: sessionId,
     });
   }
 
   private emitSessionEnd(sessionId: string): void {
-    this.callback('opencode', {
+    this.eventCallback('opencode', {
       hook_event_name: `${OPCODE_HOOK_EVENT_PREFIX}sessionEnd`,
       session_id: sessionId,
       reason: 'exit',
@@ -290,9 +337,9 @@ export class OpenCodeSessionPoller {
     // Normalize the directory path for the query (escape single quotes)
     const dir = this.workspaceDir.replace(/'/g, "''");
 
-    // Query sessions for this directory, including recently active ones
-    const cutoff = Date.now() - OPCODE_INITIAL_SCAN_WINDOW_MS;
-    const sql = `SELECT id, directory, agent, time_updated FROM session WHERE directory = '${dir}' AND time_updated >= ${cutoff} ORDER BY time_updated DESC`;
+    // Query sessions for this directory (no time constraint — idle sessions must be found too).
+    // Limit to the most recent 50 sessions to avoid unbounded queries.
+    const sql = `SELECT id, directory, agent, time_updated FROM session WHERE directory = '${dir}' ORDER BY time_updated DESC LIMIT 50`;
     const result = this.execDbQuery(sql);
     try {
       return JSON.parse(result) as OpenCodeSession[];
@@ -320,8 +367,9 @@ export class OpenCodeSessionPoller {
 
     // Use sqlite3 directly for better performance (already installed on macOS).
     // Fall back to `opencode db` if sqlite3 is not available.
+    // Use -header so the TSV parser can parse the first line as column names.
     try {
-      const result = this.execSync('sqlite3', [dbPath, sql]);
+      const result = this.execSync('sqlite3', ['-header', '-separator', '\t', dbPath, sql]);
       if (result !== null) return result;
     } catch {
       /* fall through to opencode db */

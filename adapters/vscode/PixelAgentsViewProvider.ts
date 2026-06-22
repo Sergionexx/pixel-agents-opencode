@@ -38,7 +38,7 @@ import {
 import { PixelAgentsServer } from '../../server/src/server.js';
 import {
   getProjectDirPath,
-  launchNewTerminal,
+  launchOpenCodeTerminal,
   restoreAgents,
   sendCurrentAgentStatuses,
   sendExistingAgents,
@@ -120,12 +120,17 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
     this.runtime = new AgentRuntime(this.store, claudeProvider, opencodeProvider);
 
     // Create OpenCode session DB poller (started once we know the workspace directory)
-    const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (wsFolder) {
-      this.opencodePoller = new OpenCodeSessionPoller(wsFolder, (providerId, event) => {
+    const pollerDir = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? os.homedir();
+    this.opencodePoller = new OpenCodeSessionPoller(
+      pollerDir,
+      (providerId, event) => {
         this.runtime.handleHookEvent(providerId, event);
-      });
-    }
+      },
+      (sessionId, directory) => {
+        if (this.runtime.dismissedOpenCodeSessions.has(sessionId)) return undefined;
+        return this.runtime.registerExternalHooksOnlyAgent(sessionId, directory);
+      },
+    );
 
     this.initServer();
   }
@@ -171,25 +176,15 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async (message) => {
       if (message.type === 'launchAgent') {
         const prevAgentIds = new Set(this.store.keys());
-        await launchNewTerminal(
+        launchOpenCodeTerminal(
           this.store.nextAgentId,
           this.store.nextTerminalIndex,
           this.store,
-          this.runtime.activeAgentId,
-          this.runtime.knownJsonlFiles,
-          this.runtime.fileWatchers,
-          this.runtime.pollingTimers,
-          this.runtime.waitingTimers,
-          this.runtime.permissionTimers,
-          this.runtime.jsonlPollTimers,
-          this.runtime.projectScanTimer,
-          () => this.store.persist(),
           message.folderPath as string | undefined,
-          message.bypassPermissions as boolean | undefined,
         );
-        // Register newly created agent(s) with hook handler
+        // Register new agent with hook event handler (only if sessionId is set)
         for (const [id, agent] of this.store) {
-          if (!prevAgentIds.has(id)) {
+          if (!prevAgentIds.has(id) && agent.sessionId) {
             this.runtime.registerAgent(agent.sessionId, id);
           }
         }
@@ -318,36 +313,17 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           this.store.size === 0
         ) {
           this.autoSpawnAttempted = true;
-          console.log('[Pixel Agents] Auto-spawning agent on startup');
-          // When the user also opted into autoShowPanel, skip terminal.show()
-          // so the panel view stays on Pixel Agents. The terminal still runs;
-          // clicking the character focuses it via the focusAgent handler.
+          console.log('[Pixel Agents] Auto-spawning opencode on startup');
           const autoShowPanel = vscode.workspace
             .getConfiguration()
             .get<boolean>(CONFIG_KEY_AUTO_SHOW_PANEL, false);
-          const prevAgentIds = new Set(this.store.keys());
-          await launchNewTerminal(
+          launchOpenCodeTerminal(
             this.store.nextAgentId,
             this.store.nextTerminalIndex,
             this.store,
-            this.runtime.activeAgentId,
-            this.runtime.knownJsonlFiles,
-            this.runtime.fileWatchers,
-            this.runtime.pollingTimers,
-            this.runtime.waitingTimers,
-            this.runtime.permissionTimers,
-            this.runtime.jsonlPollTimers,
-            this.runtime.projectScanTimer,
-            () => this.store.persist(),
-            undefined,
             undefined,
             autoShowPanel,
           );
-          for (const [id, agent] of this.store) {
-            if (!prevAgentIds.has(id)) {
-              this.runtime.registerAgent(agent.sessionId, id);
-            }
-          }
         } else {
           // Mark as attempted even when skipping, so subsequent panel focuses
           // (which retrigger webviewReady) never auto-spawn unexpectedly.
@@ -403,20 +379,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         // Start external session scanning (detects VS Code extension panel sessions)
         this.runtime.startExternalScanning(projectDir);
 
-        // Start OpenCode DB session poller (detects opencode sessions in workspace)
-        // Only start if a workspace folder is available
-        const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        if (wsFolder) {
-          if (this.opencodePoller) {
-            this.opencodePoller.start();
-          } else {
-            // Create poller if not created earlier (no workspace at constructor time)
-            this.opencodePoller = new OpenCodeSessionPoller(wsFolder, (providerId, event) => {
-              this.runtime.handleHookEvent(providerId, event);
-            });
-            this.opencodePoller.start();
-          }
-        }
+        // Start OpenCode DB session poller (poller was created in constructor)
+        this.opencodePoller?.start();
 
         // In multi-root workspaces, also scan project dirs for all other folders
         // so agents running in any workspace folder are discovered
@@ -633,6 +597,10 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
           }
           // Dismiss JSONL so external scanner doesn't re-adopt it
           this.runtime.dismissalTracker.dismiss(agent.jsonlFile);
+          // For opencode agents, dismiss session so DB poller doesn't re-adopt
+          if (agent.sessionId) {
+            this.runtime.dismissedOpenCodeSessions.add(agent.sessionId);
+          }
           this.runtime.unregisterAgent(agent.sessionId);
           this.runtime.removeAgent(id);
         }

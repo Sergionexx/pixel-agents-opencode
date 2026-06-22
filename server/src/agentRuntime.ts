@@ -66,6 +66,8 @@ export class AgentRuntime {
 
   // Dependencies
   readonly dismissalTracker = new DismissalTracker();
+  /** Set of opencode session IDs that should not be re-adopted (user closed them). */
+  readonly dismissedOpenCodeSessions = new Set<string>();
   private hookEventHandler: HookEventHandler;
   private lifecycleCallbacks: RuntimeLifecycleCallbacks = {};
 
@@ -200,6 +202,68 @@ export class AgentRuntime {
   /** Register an agent with the hook event handler for session->agent mapping. */
   registerAgent(sessionId: string, agentId: number): void {
     this.hookEventHandler.registerAgent(sessionId, agentId);
+  }
+
+  /**
+   * Directly register an external hooks-only agent (e.g. from OpenCode DB poller).
+   * Skips the pending-session flow since the session is confirmed from the DB.
+   * If an agent exists with the same projectDir and empty sessionId (created by
+   * launchOpenCodeTerminal), updates that agent's sessionId instead.
+   */
+  registerExternalHooksOnlyAgent(
+    sessionId: string,
+    cwd: string,
+  ): number | undefined {
+    // Check if agent already exists for this session
+    for (const [, agent] of this.store) {
+      if (agent.sessionId === sessionId) return agent.id;
+    }
+
+    // Check if a launchOpenCodeTerminal agent exists for this cwd with empty sessionId
+    for (const [id, agent] of this.store) {
+      if (!agent.sessionId && agent.projectDir === cwd) {
+        agent.sessionId = sessionId;
+        this.registerAgent(sessionId, id);
+        console.log(`[Pixel Agents] OpenCode: Agent ${id} - updated sessionId to ${sessionId.slice(0, 8)}...`);
+        return id;
+      }
+    }
+
+    const id = this.store.nextAgentId.current++;
+    const agent: AgentState = {
+      id,
+      sessionId,
+      terminalRef: undefined,
+      isExternal: true,
+      projectDir: cwd,
+      jsonlFile: '',
+      fileOffset: 0,
+      lineBuffer: '',
+      activeToolIds: new Set(),
+      activeToolStatuses: new Map(),
+      activeToolNames: new Map(),
+      activeSubagentToolIds: new Map(),
+      activeSubagentToolNames: new Map(),
+      backgroundAgentToolIds: new Set(),
+      isWaiting: true,
+      permissionSent: false,
+      hadToolsInTurn: false,
+      hookDelivered: true,
+      hooksOnly: true,
+      lastDataAt: Date.now(),
+      linesProcessed: 0,
+      seenUnknownRecordTypes: new Set(),
+      folderName: cwd ? cwd.split('/').pop() ?? cwd.split('\\').pop() : undefined,
+      inputTokens: 0,
+      outputTokens: 0,
+    };
+
+    this.store.set(id, agent);
+    this.store.persist();
+    this.registerAgent(sessionId, id);
+
+    console.log(`[Pixel Agents] OpenCode: Agent ${id} - registered hooks-only session ${sessionId.slice(0, 8)}...`);
+    return id;
   }
 
   /** Unregister an agent from the hook event handler. */
