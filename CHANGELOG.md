@@ -1,6 +1,17 @@
 # Changelog
 
-## v1.3.0
+## v1.4.0 — OpenCode fork
+
+> This is a **fork** of the original [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) by pablodelucca.
+> All original changelog entries below are preserved for attribution.
+
+### What's new in this fork
+
+- **OpenCode backend** — replaces Claude Code with [OpenCode](https://opencode.ai) as the agent runtime. Agents are discovered via OpenCode's SQLite database instead of JSONL transcript polling.
+- **DB session poller** — polls the opencode SQLite DB for session/tool activity changes and emits synthetic hook events for the webview.
+- **Multi-provider architecture** — the hook event handler and agent runtime now support multiple agent providers simultaneously.
+- **Agent lifecycle** — +Agent button launches opencode terminals; agents are created immediately and linked to their DB session on discovery.
+- **Session dismissal** — closed agents are prevented from being re-adopted by the DB poller.
 
 ### Features
 

@@ -2,7 +2,7 @@
   "name": "pixel-agents-opencode",
   "displayName": "Pixel Agents (OpenCode)",
   "description": "Fork of pixel-agents (by pablodelucca) — all credit to the original author. Only difference: made compatible with opencode (replaces Claude Code as the agent backend). Pixel art office where your AI coding agents come to life as animated characters.",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "publisher": "smonteros",
   "repository": {
     "type": "git",

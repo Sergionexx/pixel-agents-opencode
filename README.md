@@ -1,5 +1,5 @@
 <h1 align="center">
-    <a href="https://github.com/pixel-agents-hq/pixel-agents/discussions">
+    <a href="https://github.com/pixel-agents-hq/pixel-agents">
         <img src="webview-ui/public/banner.png" alt="Pixel Agents">
     </a>
 </h1>
@@ -10,31 +10,32 @@
 
 <div align="center" style="margin-top: 25px;">
 
-[![version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fpablodelucca%2F3cd28398fa4a2c0a636e1d51d41aee39%2Fraw%2Fversion.json)](https://github.com/pixel-agents-hq/pixel-agents/releases)
-[![marketplaces](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fpablodelucca%2F3cd28398fa4a2c0a636e1d51d41aee39%2Fraw%2Finstalls.json)](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents)
-[![stars](https://img.shields.io/github/stars/pixel-agents-hq/pixel-agents?logo=github&color=0183ff&style=flat)](https://github.com/pixel-agents-hq/pixel-agents/stargazers)
-[![license](https://img.shields.io/github/license/pixel-agents-hq/pixel-agents?color=0183ff&style=flat)](https://github.com/pixel-agents-hq/pixel-agents/blob/main/LICENSE)
-[![good first issues](https://img.shields.io/github/issues/pixel-agents-hq/pixel-agents/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/pixel-agents-hq/pixel-agents/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
+[![version](https://img.shields.io/badge/version-1.4.0-blue)]()
+[![license](https://img.shields.io/github/stars/Sergionexx/pixel-agents-opencode?logo=github&color=0183ff&style=flat)]()
 
 </div>
 
 <div align="center">
-<a href="https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents">🛒 VS Code Marketplace</a> • <a href="https://github.com/pixel-agents-hq/pixel-agents/discussions">💬 Discussions</a> • <a href="https://github.com/pixel-agents-hq/pixel-agents/issues">🐛 Issues</a> • <a href="CONTRIBUTING.md">🤝 Contributing</a> • <a href="CHANGELOG.md">📋 Changelog</a>
+<a href="https://marketplace.visualstudio.com/items?itemName=smonteros.pixel-agents-opencode">🛒 VS Code Marketplace</a> • <a href="https://github.com/Sergionexx/pixel-agents-opencode/issues">🐛 Issues</a>
 </div>
 
 <br/>
 
-Pixel Agents turns multi-agent AI systems into something you can actually see and manage. Each agent becomes a character in a pixel art office. They walk around, sit at their desk, and visually reflect what they are doing — typing when writing code, reading when searching files, waiting when it needs your attention.
+> **⚠️ This is a fork of [pixel-agents](https://github.com/pixel-agents-hq/pixel-agents) by [pablodelucca](https://github.com/pablodelucca).**  
+> All credit for the original concept, code, and assets goes to the original authors (see [Credits](#credits) below).  
+> **The only difference in this fork is compatibility with [OpenCode](https://opencode.ai) instead of Claude Code** — every feature works exactly the same, but agents run on opencode's backend.
 
-Right now it works as a VS Code extension with Claude Code. The vision though, is a fully agent-agnostic, platform-agnostic interface for orchestrating any AI agents, deployable anywhere.
+---
 
-This is the source code for the free Pixel Agents extension for VS Code — install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents) or [Open VSX](https://open-vsx.org/extension/pablodelucca/pixel-agents) with the full furniture catalog included.
+Pixel Agents turns multi-agent AI coding assistants into something you can actually see and manage. Each agent becomes a character in a pixel art office. They walk around, sit at their desk, and visually reflect what they are doing — typing when writing code, reading when searching files, waiting when it needs your attention.
+
+This is a fork of the Pixel Agents VS Code extension modified to work with **OpenCode** as the agent backend. Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=smonteros.pixel-agents-opencode).
 
 ![Pixel Agents screenshot](webview-ui/public/Screenshot.jpg)
 
 ## Features
 
-- **One agent, one character** — every Claude Code terminal gets its own animated character
+- **One agent, one character** — every OpenCode terminal gets its own animated character
 - **Live activity tracking** — characters animate based on what the agent is actually doing (writing, reading, running commands)
 - **Office layout editor** — design your office with floors, walls, and furniture using a built-in editor
 - **Speech bubbles** — visual indicators when an agent is waiting for input or needs permission
@@ -51,18 +52,18 @@ This is the source code for the free Pixel Agents extension for VS Code — inst
 ## Requirements
 
 - VS Code 1.105.0 or later
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and configured
+- [OpenCode CLI](https://opencode.ai) installed and configured
 - **Platform**: Windows, Linux, and macOS are supported
 
 ## Getting Started
 
-If you just want to use Pixel Agents, the easiest way is to download the [VS Code extension](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents). If you want to play with the code, develop, or contribute, then:
+If you just want to use Pixel Agents (OpenCode), install the [VS Code extension](https://marketplace.visualstudio.com/items?itemName=smonteros.pixel-agents-opencode). If you want to play with the code, develop, or contribute, then:
 
 ### Install from source
 
 ```bash
-git clone https://github.com/pixel-agents-hq/pixel-agents.git
-cd pixel-agents
+git clone https://github.com/Sergionexx/pixel-agents-opencode.git
+cd pixel-agents-opencode
 npm install
 cd webview-ui && npm install && cd ..
 npm run build
@@ -73,8 +74,8 @@ Then press **F5** in VS Code to launch the Extension Development Host.
 ### Usage
 
 1. Open the **Pixel Agents** panel (it appears in the bottom panel area alongside your terminal)
-2. Click **+ Agent** to spawn a new Claude Code terminal and its character. Right-click for the option to launch with `--dangerously-skip-permissions` (bypasses all tool approval prompts)
-3. Start coding with Claude — watch the character react in real time
+2. Click **+ Agent** to spawn a new OpenCode terminal and its character
+3. Start coding with OpenCode — watch the character react in real time
 4. Click a character to select it, then click a seat to reassign it
 5. Click **Layout** to open the office editor and customize your space
 
@@ -92,7 +93,7 @@ The grid is expandable up to 64×64 tiles. Click the ghost border outside the cu
 
 ### Office Assets
 
-All office assets (furniture, floors, walls) are now **fully open-source** and included in this repository under `webview-ui/public/assets/`. No external purchases or imports are needed — everything works out of the box.
+All office assets (furniture, floors, walls) are **fully open-source** and included in this repository under `webview-ui/public/assets/`. No external purchases or imports are needed — everything works out of the box.
 
 Each furniture item lives in its own folder under `assets/furniture/` with a `manifest.json` that declares its sprites, rotation groups, state groups (on/off), and animation frames. Floor tiles are individual PNGs in `assets/floors/`, and wall tile sets are in `assets/walls/`. This modular structure makes it easy to add, remove, or modify assets without touching any code.
 
@@ -104,7 +105,7 @@ Characters are based on the amazing work of [JIK-A-4, Metro City](https://jik-a-
 
 ## How It Works
 
-Pixel Agents watches Claude Code's JSONL transcript files to track what each agent is doing. When an agent uses a tool (like writing a file or running a command), the extension detects it and updates the character's animation accordingly. No modifications to Claude Code are needed — it's purely observational.
+Pixel Agents watches OpenCode's SQLite database to track what each agent is doing. When an agent uses a tool (like writing a file or running a command), the extension detects it and updates the character's animation accordingly. No modifications to OpenCode are needed — it's purely observational.
 
 The webview runs a lightweight game loop with canvas rendering, BFS pathfinding, and a character state machine (idle → walk → type/read). Everything is pixel-perfect at integer zoom levels.
 
@@ -115,16 +116,16 @@ The webview runs a lightweight game loop with canvas rendering, BFS pathfinding,
 
 ## Known Limitations
 
-- **Agent-terminal sync** — the way agents are connected to Claude Code terminal instances is not super robust and sometimes desyncs, especially when terminals are rapidly opened/closed or restored across sessions.
-- **Heuristic-based status detection** — Claude Code's JSONL transcript format does not provide clear signals for when an agent is waiting for user input or when it has finished its turn. The current detection is based on heuristics (idle timers, turn-duration events) and often misfires — agents may briefly show the wrong status or miss transitions.
-- **Linux/macOS tip** — if you launch VS Code without a folder open (e.g. bare `code` command), agents will start in your home directory. This is fully supported; just be aware your Claude sessions will be tracked under `~/.claude/projects/` using your home directory as the project root.
+- **Agent-terminal sync** — the way agents are connected to OpenCode terminal instances is not super robust and sometimes desyncs, especially when terminals are rapidly opened/closed or restored across sessions.
+- **Heuristic-based status detection** — OpenCode's DB schema does not provide clear signals for when an agent is waiting for user input or when it has finished its turn.
+- **Linux/macOS tip** — if you launch VS Code without a folder open (e.g. bare `code` command), agents will start in your home directory.
 
 ## Troubleshooting
 
 If your agent appears stuck on idle or doesn't spawn:
 
-1. **Debug View** — In the Pixel Agents panel, click the gear icon (Settings), then toggle **Debug View**. This shows connection diagnostics per agent: JSONL file status, lines parsed, last data timestamp, and file path. If you see "JSONL not found", the extension can't locate the session file.
-2. **Debug Console** — If you're running from source (Extension Development Host via F5), open VS Code's **View > Debug Console**. Search for `[Pixel Agents]` to see detailed logs: project directory resolution, JSONL polling status, path encoding mismatches, and unrecognized JSONL record types.
+1. **Debug View** — In the Pixel Agents panel, click the gear icon (Settings), then toggle **Debug View**. This shows connection diagnostics per agent.
+2. **Debug Console** — If you're running from source (Extension Development Host via F5), open VS Code's **View > Debug Console**. Search for `[Pixel Agents]` to see detailed logs.
 
 ## Where This Is Going
 
@@ -137,25 +138,27 @@ The long-term vision is an interface where managing AI agents feels like playing
 - **Token health bars** — rate limits and context windows visualized as in-game stats.
 - **Fully customizable** — upload your own character sprites, themes, and office assets. Eventually maybe even move beyond pixel art into 3D or VR.
 
-For this to work, the architecture needs to be modular at every level:
+## Credits
 
-- **Platform-agnostic**: VS Code extension today, Electron app, web app, or any other host environment tomorrow.
-- **Agent-agnostic**: Claude Code today, but built to support Codex, OpenCode, Gemini, Cursor, Copilot, and others through composable adapters.
-- **Theme-agnostic**: community-created assets, skins, and themes from any contributor.
+This is a **fork** of the original [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) extension by **[pablodelucca](https://github.com/pablodelucca)** ([Marketplace](https://marketplace.visualstudio.com/items?itemName=pablodelucca.pixel-agents)).
 
-We're actively working on the core module and adapter architecture that makes this possible. If you're interested to talk about this further, please visit our [Discussions Section](https://github.com/pixel-agents-hq/pixel-agents/discussions).
+**All credit for the original work goes to the [pixel-agents-hq](https://github.com/pixel-agents-hq/pixel-agents) contributors:**
 
-## Community & Contributing
+- [@pablodelucca](https://github.com/pablodelucca) — creator and lead developer
+- [@NNTin](https://github.com/NNTin) — Claude Code hooks integration, Tailwind v4 migration
+- [@daniel-lxs](https://github.com/daniel-lxs) — early contributions
+- [@jakedguez](https://github.com/jakedguez) — early contributions
+- [@nickytonline](https://github.com/nickytonline) — early contributions
+- [@michael-p](https://github.com/michael-p) — early contributions
+- And all other [contributors](https://github.com/pixel-agents-hq/pixel-agents/graphs/contributors)
 
-Use **[Issues](https://github.com/pixel-agents-hq/pixel-agents/issues)** to report bugs or request features. Join **[Discussions](https://github.com/pixel-agents-hq/pixel-agents/discussions)** for questions and conversations.
+Characters are based on the amazing work of [JIK-A-4, Metro City](https://jik-a-4.itch.io/metrocity-free-topdown-character-pack).
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on how to contribute.
+**This fork's only change** is compatibility with [OpenCode](https://opencode.ai) as the agent backend. Everything else — code, sprites, furniture, layouts — is the original work.
 
-Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+## Supporting the Original Project
 
-## Supporting the Project
-
-If you find Pixel Agents useful, consider supporting its development:
+If you find this useful, consider supporting the original project and its creator:
 
 <a href="https://github.com/sponsors/pablodelucca">
   <img src="https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github" alt="GitHub Sponsors">
@@ -164,10 +167,6 @@ If you find Pixel Agents useful, consider supporting its development:
   <img src="https://img.shields.io/badge/Support-Ko--fi-ff5e5b?logo=ko-fi" alt="Ko-fi">
 </a>
 
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=pixel-agents-hq/pixel-agents&type=Date)](https://www.star-history.com/?repos=pixel-agents-hq%2Fpixel-agents&type=date&legend=bottom-right)
-
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE). Same as the original.
