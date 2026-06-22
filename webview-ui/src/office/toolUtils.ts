@@ -2,6 +2,7 @@ import { ZOOM_DEFAULT_DPR_FACTOR, ZOOM_MIN } from '../constants.js';
 
 /** Map status prefixes back to tool names for animation selection */
 const STATUS_TO_TOOL: Record<string, string> = {
+  // Claude Code tool names (PascalCase)
   Reading: 'Read',
   Searching: 'Grep',
   Globbing: 'Glob',
@@ -11,6 +12,14 @@ const STATUS_TO_TOOL: Record<string, string> = {
   Editing: 'Edit',
   Running: 'Bash',
   Task: 'Task',
+  // OpenCode tool names (lowercase) — same prefixes, different casing
+  reading: 'read',
+  searching: 'grep',
+  fetching: 'webfetch',
+  'searching web': 'websearch',
+  writing: 'write',
+  running: 'bash',
+  task: 'task',
 };
 
 export function extractToolName(status: string): string | null {

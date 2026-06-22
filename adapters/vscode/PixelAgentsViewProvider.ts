@@ -29,7 +29,12 @@ import {
   watchLayoutFile,
   writeLayoutToFile,
 } from '../../server/src/layoutPersistence.js';
-import { claudeProvider, copyHookScript } from '../../server/src/providers/index.js';
+import {
+  claudeProvider,
+  copyHookScript,
+  opencodeProvider,
+  OpenCodeSessionPoller,
+} from '../../server/src/providers/index.js';
 import { PixelAgentsServer } from '../../server/src/server.js';
 import {
   getProjectDirPath,
@@ -75,6 +80,9 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
   private pixelAgentsServer: PixelAgentsServer | null = null;
   private adapter: StateAdapter;
 
+  // OpenCode session DB poller
+  private opencodePoller: OpenCodeSessionPoller | null = null;
+
   // Auto-spawn guard: ensures the startup spawn fires at most once per VS Code
   // session, even though webviewReady fires on every panel focus.
   private autoSpawnAttempted = false;
@@ -108,7 +116,16 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
     setTerminalAdapter(new VscodeTerminalAdapter());
 
     // Create shared runtime (owns timer Maps, scanners, hook handler, dismissal tracker)
-    this.runtime = new AgentRuntime(this.store, claudeProvider);
+    // Pass both providers — events from either will be processed correctly
+    this.runtime = new AgentRuntime(this.store, claudeProvider, opencodeProvider);
+
+    // Create OpenCode session DB poller (started once we know the workspace directory)
+    const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (wsFolder) {
+      this.opencodePoller = new OpenCodeSessionPoller(wsFolder, (providerId, event) => {
+        this.runtime.handleHookEvent(providerId, event);
+      });
+    }
 
     this.initServer();
   }
@@ -271,8 +288,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
         // from the first frame.
         this.webview?.postMessage({
           type: 'providerCapabilities',
-          readingTools: [...claudeProvider.readingTools],
-          subagentToolNames: [...claudeProvider.subagentToolNames],
+          readingTools: [...new Set([...claudeProvider.readingTools, ...opencodeProvider.readingTools])],
+          subagentToolNames: [...new Set([...claudeProvider.subagentToolNames, ...opencodeProvider.subagentToolNames])],
         });
         restoreAgents(
           this.adapter,
@@ -385,6 +402,21 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 
         // Start external session scanning (detects VS Code extension panel sessions)
         this.runtime.startExternalScanning(projectDir);
+
+        // Start OpenCode DB session poller (detects opencode sessions in workspace)
+        // Only start if a workspace folder is available
+        const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (wsFolder) {
+          if (this.opencodePoller) {
+            this.opencodePoller.start();
+          } else {
+            // Create poller if not created earlier (no workspace at constructor time)
+            this.opencodePoller = new OpenCodeSessionPoller(wsFolder, (providerId, event) => {
+              this.runtime.handleHookEvent(providerId, event);
+            });
+            this.opencodePoller.start();
+          }
+        }
 
         // In multi-root workspaces, also scan project dirs for all other folders
         // so agents running in any workspace folder are discovered
@@ -704,6 +736,8 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
   }
 
   dispose() {
+    this.opencodePoller?.stop();
+    this.opencodePoller = null;
     this.pixelAgentsServer?.stop();
     this.pixelAgentsServer = null;
     this.runtime.dispose();

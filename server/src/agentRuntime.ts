@@ -69,16 +69,25 @@ export class AgentRuntime {
   private hookEventHandler: HookEventHandler;
   private lifecycleCallbacks: RuntimeLifecycleCallbacks = {};
 
+  /** All registered providers. */
+  readonly providers: HookProvider[] = [];
+
   constructor(
     private readonly store: AgentStateStore,
-    provider: HookProvider,
+    ...providers: HookProvider[]
   ) {
+    this.providers = providers;
+
+    // First provider is the primary (used for module-level dependencies)
+    const primary = providers[0];
+    if (!primary) throw new Error('At least one provider is required');
+
     // Wire module-level dependencies
     setDismissalTracker(this.dismissalTracker);
-    setHookProvider(provider);
-    setFileWatcherHookProvider(provider);
-    if (provider.team) {
-      setTeamProvider(provider.team);
+    setHookProvider(primary);
+    setFileWatcherHookProvider(primary);
+    if (primary.team) {
+      setTeamProvider(primary.team);
     }
     setAgentRemovalCallback((id) => this.removeAgent(id));
     setTeammateRemovalCallback((id) => this.removeTeammate(id, 'team-config'));
@@ -87,7 +96,7 @@ export class AgentRuntime {
       store,
       this.waitingTimers,
       this.permissionTimers,
-      provider,
+      providers,
       new SessionRouter(),
       this.watchAllSessions,
     );
